@@ -1,0 +1,379 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  DEVELOPER
+  REVIEWER
+}
+
+enum ProjectSourceType {
+  URL
+  GITHUB
+  UPLOAD
+  DEMO
+}
+
+enum ProjectStatus {
+  PENDING
+  ANALYZING
+  READY
+  FAILED
+}
+
+enum ScanStatus {
+  QUEUED
+  SCANNING
+  COMPLETED
+  FAILED
+}
+
+enum ViolationStatus {
+  OPEN
+  ANALYZED
+  REPAIRED
+  VERIFIED
+  WONT_FIX
+}
+
+enum RepairStatus {
+  PLANNED
+  GENERATED
+  APPLIED
+  TESTING
+  VERIFIED
+  FAILED
+  REJECTED
+}
+
+enum RepairAttemptResult {
+  SUCCESS
+  FAILED
+  REJECTED
+}
+
+enum TestRunType {
+  ACCESSIBILITY
+  REGRESSION
+  VISUAL
+  BUILD
+  FUNCTIONAL
+  FULL
+}
+
+enum TestRunStatus {
+  QUEUED
+  RUNNING
+  PASSED
+  FAILED
+}
+
+enum VerificationStatus {
+  PENDING
+  VALID
+  INVALID
+}
+
+enum CertificateStatus {
+  VALID
+  INVALID
+  REVOKED
+}
+
+enum DeploymentStatus {
+  PENDING
+  BLOCKED
+  READY
+  DEPLOYED
+  FAILED
+}
+
+enum DeploymentEnvironment {
+  LOCAL
+  STAGING
+  PRODUCTION
+}
+
+// -------------------------------------------------------------
+// 1. USER MODEL
+// -------------------------------------------------------------
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(DEVELOPER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+// -------------------------------------------------------------
+// 2. PROJECT MODEL
+// -------------------------------------------------------------
+model Project {
+  id                 String            @id @default(uuid())
+  name               String
+  sourceType         ProjectSourceType @default(URL)
+  sourceUrl          String?
+  repositoryUrl      String?
+  framework          String            @default("React")
+  language           String            @default("TypeScript")
+  packageManager     String            @default("npm")
+  status             ProjectStatus     @default(READY)
+  accessibilityScore Float             @default(100)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  scans              Scan[]
+  repairs            Repair[]
+  certificates       ProofCertificate[]
+  deployments        Deployment[]
+  auditLogs          AuditLog[]
+
+  @@index([sourceUrl])
+  @@index([repositoryUrl])
+  @@map("projects")
+}
+
+// -------------------------------------------------------------
+// 3. SCAN MODEL
+// -------------------------------------------------------------
+model Scan {
+  id               String       @id @default(uuid())
+  projectId        String
+  url              String
+  status           ScanStatus   @default(QUEUED)
+  score            Float        @default(100)
+  totalViolations  Int          @default(0)
+  totalPasses      Int          @default(0)
+  totalIncomplete  Int          @default(0)
+  criticalCount    Int          @default(0)
+  seriousCount     Int          @default(0)
+  moderateCount    Int          @default(0)
+  minorCount       Int          @default(0)
+  duration         Float?       // in seconds
+  startedAt        DateTime     @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime     @default(now())
+
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  violations       Violation[]
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([status])
+  @@map("scans")
+}
+
+// -------------------------------------------------------------
+// 4. VIOLATION MODEL
+// -------------------------------------------------------------
+model Violation {
+  id            String          @id @default(uuid())
+  scanId        String
+  ruleId        String
+  impact        String?         // critical, serious, moderate, minor
+  wcagCriteria  String[]        // Array of WCAG Criterion IDs (e.g. ["1.1.1", "4.1.2"])
+  description   String
+  help          String
+  helpUrl       String?
+  tags          String[]
+  affectedNodes Json            // Full axe-core node JSON
+  sourceHtml    String?
+  target        String?
+  status        ViolationStatus @default(OPEN)
+  createdAt     DateTime        @default(now())
+
+  scan          Scan            @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repairs       Repair[]
+
+  @@index([scanId])
+  @@index([ruleId])
+  @@index([status])
+  @@map("violations")
+}
+
+// -------------------------------------------------------------
+// 5. REPAIR MODEL
+// -------------------------------------------------------------
+model Repair {
+  id                   String                @id @default(uuid())
+  projectId            String
+  violationId          String
+  ruleId               String
+  strategy             String
+  status               RepairStatus          @default(GENERATED)
+  confidence           Float                 @default(100)
+  risk                 String                @default("LOW") // LOW, MEDIUM, HIGH
+  originalCode         String
+  patchedCode          String
+  filePath             String
+  lineStart            Int                   @default(1)
+  lineEnd              Int                   @default(1)
+  patchHash            String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  project              Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  violation            Violation             @relation(fields: [violationId], references: [id], onDelete: Cascade)
+  attempts             RepairAttempt[]
+  testRuns             TestRun[]
+  verificationContract VerificationContract?
+  proofCertificates    ProofCertificate[]
+  deployments          Deployment[]
+
+  @@index([projectId])
+  @@index([violationId])
+  @@index([status])
+  @@map("repairs")
+}
+
+// -------------------------------------------------------------
+// 6. REPAIR ATTEMPT MODEL
+// -------------------------------------------------------------
+model RepairAttempt {
+  id             String              @id @default(uuid())
+  repairId       String
+  attemptNumber  Int                 @default(1)
+  agent          String              @default("RepairPlannerAgent")
+  inputContext   Json?
+  generatedPatch String
+  failureReason  String?
+  result         RepairAttemptResult @default(SUCCESS)
+  createdAt      DateTime            @default(now())
+
+  repair         Repair              @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@index([repairId])
+  @@map("repair_attempts")
+}
+
+// -------------------------------------------------------------
+// 7. TEST RUN MODEL
+// -------------------------------------------------------------
+model TestRun {
+  id                   String        @id @default(uuid())
+  repairId             String
+  type                 TestRunType   @default(FULL)
+  status               TestRunStatus @default(PASSED)
+  violationsBefore     Int           @default(1)
+  violationsAfter      Int           @default(0)
+  regressionPassed     Boolean       @default(true)
+  accessibilityPassed  Boolean       @default(true)
+  visualDiffPassed     Boolean       @default(true)
+  buildPassed          Boolean       @default(true)
+  testOutput           Json?
+  startedAt            DateTime      @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime      @default(now())
+
+  repair               Repair        @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@index([repairId])
+  @@index([status])
+  @@map("test_runs")
+}
+
+// -------------------------------------------------------------
+// 8. VERIFICATION CONTRACT MODEL
+// -------------------------------------------------------------
+model VerificationContract {
+  id             String             @id @default(uuid())
+  repairId       String             @unique
+  ruleId         String
+  wcagCriteria   String[]
+  precondition   String
+  transformation String
+  postcondition  String
+  evidence       Json?
+  status         VerificationStatus @default(VALID)
+  verifiedAt     DateTime?
+  createdAt      DateTime           @default(now())
+
+  repair         Repair             @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([status])
+  @@map("verification_contracts")
+}
+
+// -------------------------------------------------------------
+// 9. PROOF CERTIFICATE MODEL
+// -------------------------------------------------------------
+model ProofCertificate {
+  id                 String            @id @default(uuid())
+  certificateId      String            @unique // e.g. "PA11Y-2026-00001"
+  projectId          String
+  repairId           String
+  ruleId             String
+  wcagCriteria       String[]
+  sourceHash         String
+  patchHash          String
+  contractHash       String
+  testHash           String
+  verificationStatus CertificateStatus @default(VALID)
+  certificateData    Json              // Full machine-checkable contract and provenance details
+  issuedAt           DateTime          @default(now())
+
+  project            Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  repair             Repair            @relation(fields: [repairId], references: [id], onDelete: Restrict)
+
+  @@index([certificateId])
+  @@index([projectId])
+  @@index([repairId])
+  @@map("proof_certificates")
+}
+
+// -------------------------------------------------------------
+// 10. DEPLOYMENT MODEL
+// -------------------------------------------------------------
+model Deployment {
+  id             String                @id @default(uuid())
+  projectId      String
+  repairId       String
+  certificateId  String
+  status         DeploymentStatus      @default(READY)
+  environment    DeploymentEnvironment @default(LOCAL)
+  deploymentHash String
+  deployedAt     DateTime?
+  createdAt      DateTime              @default(now())
+
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  repair         Repair                @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([repairId])
+  @@map("deployments")
+}
+
+// -------------------------------------------------------------
+// 11. AUDIT LOG MODEL
+// -------------------------------------------------------------
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  projectId  String?
+  action     String   // SCAN_STARTED, VIOLATION_DETECTED, REPAIR_GENERATED, CERTIFICATE_CREATED, etc.
+  entityType String   // Scan, Violation, Repair, ProofCertificate
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}

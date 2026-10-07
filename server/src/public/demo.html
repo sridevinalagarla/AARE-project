@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccessFix AI Demo - Test Webpage with Intentional Accessibility Barriers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            margin: 0;
+            padding: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        .low-contrast-box {
+            background-color: #f3f4f6;
+            color: #a8a29e; /* Fails WCAG 1.4.3 Contrast */
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+        .form-section {
+            background: #fafafa;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        input, select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 350px;
+            box-sizing: border-box;
+        }
+        .icon-btn {
+            background: #0284c7;
+            border: none;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .product-card {
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            border-radius: 6px;
+        }
+        .banner-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <!-- Violation: Skipped heading level (H3 after no H2, etc) -->
+    <h1>Nexus Retail - Accessibility Audit Demo Portal</h1>
+    <p>This demo page contains deliberate WCAG violations across images, forms, color contrast, links, and structure to demonstrate automated accessibility detection.</p>
+</header>
+
+<main>
+    <section>
+        <!-- Violation: Image without alt attribute -->
+        <h3>Featured Electronics Sale</h3>
+        <img class="banner-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='200'><rect width='800' height='200' fill='%232563eb'/><text x='50%25' y='50%25' fill='white' font-size='24' text-anchor='middle' dominant-baseline='middle'>Sale Banner - 50% Off Today</text></svg>">
+        
+        <!-- Violation: Low contrast text (WCAG 1.4.3) -->
+        <div class="low-contrast-box">
+            <p>Special Promotion Notice: Limited stock available for all registered corporate buyers. Free standard ground shipping on orders placed before 5 PM EST.</p>
+        </div>
+    </section>
+
+    <!-- Violation: Heading order skip (jumping directly from h3 to h5) -->
+    <h5>Customer Checkout & Newsletter</h5>
+
+    <div class="form-section">
+        <form action="#" method="POST">
+            <div class="form-group">
+                <!-- Violation: Input without label or aria-label (WCAG 1.3.1 / 3.3.2) -->
+                <input type="text" id="cust-name" placeholder="Enter your full name">
+            </div>
+
+            <div class="form-group">
+                <!-- Violation: Input with empty label -->
+                <label for="cust-email"></label>
+                <input type="email" id="cust-email" placeholder="email@company.com">
+            </div>
+
+            <div class="form-group">
+                <!-- Violation: Button without name or accessible text (WCAG 4.1.2) -->
+                <button type="submit" class="icon-btn" id="submit-order-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <section>
+        <h3>Recommended Accessories</h3>
+        <div class="product-grid">
+            <div class="product-card" id="card-1">
+                <!-- Violation: Unlabeled image in product card -->
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='120'><rect width='200' height='120' fill='%2310b981'/><text x='50%25' y='50%25' fill='white' font-size='16' text-anchor='middle'>Wireless Keyboard</text></svg>">
+                <p>Ergonomic Wireless Keyboard</p>
+                <!-- Violation: Non-descriptive link text (WCAG 2.4.4) -->
+                <a href="/keyboard-specs" class="product-link">Click here</a>
+            </div>
+
+            <div class="product-card" id="card-1">
+                <!-- Violation: Duplicate ID "card-1" on same page (WCAG 4.1.1 / 4.1.2) -->
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='120'><rect width='200' height='120' fill='%238b5cf6'/><text x='50%25' y='50%25' fill='white' font-size='16' text-anchor='middle'>USB-C Hub</text></svg>">
+                <p>Multi-port Thunderbolt Adapter</p>
+                <!-- Violation: Empty link (WCAG 2.4.4) -->
+                <a href="/hub-specs" class="product-link"></a>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <p>&copy; 2026 Nexus Retail Demo Inc. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
