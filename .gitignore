@@ -17,6 +17,8 @@ client/.env.*
 
 # Local Embedded Database Data
 database/pgdata/
+**/pgdata/
+**/pgdata/**
 *.sqlite
 *.sqlite3
 
